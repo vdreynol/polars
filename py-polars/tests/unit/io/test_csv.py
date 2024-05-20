@@ -2133,7 +2133,7 @@ def test_no_glob(tmpdir: Path) -> None:
     assert_frame_equal(pl.read_csv(str(p), glob=False), df)
 
 
-def test_basic_decimal_write():
+def test_basic_decimal_write() -> None:
     """Tests basic decimal writing."""
     with pl.Config() as cfg:
         cfg.activate_decimals(True)
