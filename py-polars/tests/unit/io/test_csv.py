@@ -6,6 +6,7 @@ import os
 import sys
 import textwrap
 import zlib
+from decimal import Decimal
 from datetime import date, datetime, time, timedelta, timezone
 from tempfile import NamedTemporaryFile
 from typing import TYPE_CHECKING, TypedDict
@@ -2130,3 +2131,29 @@ def test_no_glob(tmpdir: Path) -> None:
     df.write_csv(str(p))
     p = tmpdir / "*.csv"
     assert_frame_equal(pl.read_csv(str(p), glob=False), df)
+
+
+def test_basic_decimal_write():
+    """
+    Tests basic decimal writing
+    """
+    with pl.Config() as cfg:
+        cfg.activate_decimals(True)
+        df = (
+            pl.DataFrame(
+                {
+                    'int': [-1, 0, 1],
+                    'float': [-9999999.999, 0.1, 9999999.999]
+                }
+            ).with_columns(
+                pl.all().cast(pl.Decimal(10, 3))
+            )
+        )
+
+    expected_str = textwrap.dedent('''\
+                   int,float
+                   -1.000,-9999999.999
+                   0.000,0.100
+                   1.000,9999999.999
+                   ''')
+    assert df.write_csv() == expected_str
