@@ -2134,9 +2134,7 @@ def test_no_glob(tmpdir: Path) -> None:
 
 
 def test_basic_decimal_write():
-    """
-    Tests basic decimal writing
-    """
+    """Tests basic decimal writing."""
     with pl.Config() as cfg:
         cfg.activate_decimals(True)
         df = (
