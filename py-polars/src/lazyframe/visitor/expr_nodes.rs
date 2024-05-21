@@ -1,4 +1,5 @@
 use polars_core::series::IsSorted;
+use polars_ops::prelude::ClosedInterval;
 use polars_plan::dsl::function_expr::rolling::RollingFunction;
 use polars_plan::dsl::function_expr::rolling_by::RollingFunctionBy;
 use polars_plan::dsl::function_expr::trigonometry::TrigonometricFunction;
@@ -35,7 +36,29 @@ pub struct Literal {
     dtype: PyObject,
 }
 
-#[pyclass]
+#[pyclass(name = "ClosedInterval")]
+#[derive(Copy, Clone)]
+pub enum PyClosedInterval {
+    Both,
+    Left,
+    Right,
+    None,
+}
+
+impl IntoPy<PyObject> for Wrap<ClosedInterval> {
+    fn into_py(self, py: Python<'_>) -> PyObject {
+        match self.0 {
+            ClosedInterval::Both => PyClosedInterval::Both,
+            ClosedInterval::Left => PyClosedInterval::Left,
+            ClosedInterval::Right => PyClosedInterval::Right,
+            ClosedInterval::None => PyClosedInterval::None,
+        }
+        .into_py(py)
+    }
+}
+
+#[pyclass(name = "Operator")]
+#[derive(Copy, Clone)]
 pub enum PyOperator {
     Eq,
     EqValidity,
@@ -59,7 +82,43 @@ pub enum PyOperator {
     LogicalOr,
 }
 
+#[pymethods]
+impl PyOperator {
+    fn __hash__(&self) -> isize {
+        *self as isize
+    }
+}
+
+impl IntoPy<PyObject> for Wrap<Operator> {
+    fn into_py(self, py: Python<'_>) -> PyObject {
+        match self.0 {
+            Operator::Eq => PyOperator::Eq,
+            Operator::EqValidity => PyOperator::EqValidity,
+            Operator::NotEq => PyOperator::NotEq,
+            Operator::NotEqValidity => PyOperator::NotEqValidity,
+            Operator::Lt => PyOperator::Lt,
+            Operator::LtEq => PyOperator::LtEq,
+            Operator::Gt => PyOperator::Gt,
+            Operator::GtEq => PyOperator::GtEq,
+            Operator::Plus => PyOperator::Plus,
+            Operator::Minus => PyOperator::Minus,
+            Operator::Multiply => PyOperator::Multiply,
+            Operator::Divide => PyOperator::Divide,
+            Operator::TrueDivide => PyOperator::TrueDivide,
+            Operator::FloorDivide => PyOperator::FloorDivide,
+            Operator::Modulus => PyOperator::Modulus,
+            Operator::And => PyOperator::And,
+            Operator::Or => PyOperator::Or,
+            Operator::Xor => PyOperator::Xor,
+            Operator::LogicalAnd => PyOperator::LogicalAnd,
+            Operator::LogicalOr => PyOperator::LogicalOr,
+        }
+        .into_py(py)
+    }
+}
+
 #[pyclass(name = "StringFunction")]
+#[derive(Copy, Clone)]
 pub enum PyStringFunction {
     ConcatHorizontal,
     ConcatVertical,
@@ -107,59 +166,38 @@ pub enum PyStringFunction {
 }
 
 #[pymethods]
-impl PyOperator {
-    fn __hash__(&self) -> u64 {
-        use PyOperator::*;
-        match self {
-            Eq => Eq as u64,
-            EqValidity => EqValidity as u64,
-            NotEq => NotEq as u64,
-            NotEqValidity => NotEqValidity as u64,
-            Lt => Lt as u64,
-            LtEq => LtEq as u64,
-            Gt => Gt as u64,
-            GtEq => GtEq as u64,
-            Plus => Plus as u64,
-            Minus => Minus as u64,
-            Multiply => Multiply as u64,
-            Divide => Divide as u64,
-            TrueDivide => TrueDivide as u64,
-            FloorDivide => FloorDivide as u64,
-            Modulus => Modulus as u64,
-            And => And as u64,
-            Or => Or as u64,
-            Xor => Xor as u64,
-            LogicalAnd => LogicalAnd as u64,
-            LogicalOr => LogicalOr as u64,
-        }
+impl PyStringFunction {
+    fn __hash__(&self) -> isize {
+        *self as isize
     }
 }
 
-impl IntoPy<PyObject> for Wrap<Operator> {
-    fn into_py(self, py: Python<'_>) -> PyObject {
-        match self.0 {
-            Operator::Eq => PyOperator::Eq,
-            Operator::EqValidity => PyOperator::EqValidity,
-            Operator::NotEq => PyOperator::NotEq,
-            Operator::NotEqValidity => PyOperator::NotEqValidity,
-            Operator::Lt => PyOperator::Lt,
-            Operator::LtEq => PyOperator::LtEq,
-            Operator::Gt => PyOperator::Gt,
-            Operator::GtEq => PyOperator::GtEq,
-            Operator::Plus => PyOperator::Plus,
-            Operator::Minus => PyOperator::Minus,
-            Operator::Multiply => PyOperator::Multiply,
-            Operator::Divide => PyOperator::Divide,
-            Operator::TrueDivide => PyOperator::TrueDivide,
-            Operator::FloorDivide => PyOperator::FloorDivide,
-            Operator::Modulus => PyOperator::Modulus,
-            Operator::And => PyOperator::And,
-            Operator::Or => PyOperator::Or,
-            Operator::Xor => PyOperator::Xor,
-            Operator::LogicalAnd => PyOperator::LogicalAnd,
-            Operator::LogicalOr => PyOperator::LogicalOr,
-        }
-        .into_py(py)
+#[pyclass(name = "BooleanFunction")]
+#[derive(Copy, Clone)]
+pub enum PyBooleanFunction {
+    Any,
+    All,
+    IsNull,
+    IsNotNull,
+    IsFinite,
+    IsInfinite,
+    IsNan,
+    IsNotNan,
+    IsFirstDistinct,
+    IsLastDistinct,
+    IsUnique,
+    IsDuplicated,
+    IsBetween,
+    IsIn,
+    AllHorizontal,
+    AnyHorizontal,
+    Not,
+}
+
+#[pymethods]
+impl PyBooleanFunction {
+    fn __hash__(&self) -> isize {
+        *self as isize
     }
 }
 
@@ -188,7 +226,8 @@ pub struct Sort {
     #[pyo3(get)]
     expr: usize,
     #[pyo3(get)]
-    options: PyObject,
+    /// maintain_order, nulls_last, descending
+    options: (bool, bool, bool),
 }
 
 #[pyclass]
@@ -216,8 +255,8 @@ pub struct SortBy {
     #[pyo3(get)]
     by: Vec<usize>,
     #[pyo3(get)]
-    /// descending, nulls_last, maintain_order
-    sort_options: (Vec<bool>, bool, bool),
+    /// maintain_order, nulls_last, descending
+    sort_options: (bool, bool, Vec<bool>),
 }
 
 #[pyclass]
@@ -264,7 +303,7 @@ pub struct Window {
     options: PyObject,
 }
 
-#[pyclass]
+#[pyclass(name = "WindowMapping")]
 pub struct PyWindowMapping {
     inner: WindowMapping,
 }
@@ -282,7 +321,7 @@ impl PyWindowMapping {
     }
 }
 
-#[pyclass]
+#[pyclass(name = "RollingGroupOptions")]
 pub struct PyRollingGroupOptions {
     inner: RollingGroupOptions,
 }
@@ -337,7 +376,7 @@ impl PyRollingGroupOptions {
     }
 }
 
-#[pyclass]
+#[pyclass(name = "GroupbyOptions")]
 pub struct PyGroupbyOptions {
     inner: GroupbyOptions,
 }
@@ -481,8 +520,7 @@ pub(crate) fn into_py(py: Python<'_>, expr: &AExpr) -> PyResult<PyObject> {
                 options.maintain_order,
                 options.nulls_last,
                 options.descending,
-            )
-                .to_object(py),
+            ),
         }
         .into_py(py),
         AExpr::Gather {
@@ -508,9 +546,9 @@ pub(crate) fn into_py(py: Python<'_>, expr: &AExpr) -> PyResult<PyObject> {
             expr: expr.0,
             by: by.iter().map(|n| n.0).collect(),
             sort_options: (
-                sort_options.descending.clone(),
-                sort_options.nulls_last,
                 sort_options.maintain_order,
+                sort_options.nulls_last,
+                sort_options.descending.clone(),
             ),
         }
         .into_py(py),
@@ -772,9 +810,37 @@ pub(crate) fn into_py(py: Python<'_>, expr: &AExpr) -> PyResult<PyObject> {
                     return Err(PyNotImplementedError::new_err("temporal expr"))
                 },
                 FunctionExpr::Boolean(boolfun) => match boolfun {
-                    BooleanFunction::IsNull => ("is_null",).to_object(py),
-                    BooleanFunction::IsNotNull => ("is_not_null",).to_object(py),
-                    _ => return Err(PyNotImplementedError::new_err("boolean expr")),
+                    BooleanFunction::Any { ignore_nulls } => {
+                        (PyBooleanFunction::Any, *ignore_nulls).into_py(py)
+                    },
+                    BooleanFunction::All { ignore_nulls } => {
+                        (PyBooleanFunction::All, *ignore_nulls).into_py(py)
+                    },
+                    BooleanFunction::IsNull => (PyBooleanFunction::IsNull,).into_py(py),
+                    BooleanFunction::IsNotNull => (PyBooleanFunction::IsNotNull,).into_py(py),
+                    BooleanFunction::IsFinite => (PyBooleanFunction::IsFinite,).into_py(py),
+                    BooleanFunction::IsInfinite => (PyBooleanFunction::IsInfinite,).into_py(py),
+                    BooleanFunction::IsNan => (PyBooleanFunction::IsNan,).into_py(py),
+                    BooleanFunction::IsNotNan => (PyBooleanFunction::IsNotNan,).into_py(py),
+                    BooleanFunction::IsFirstDistinct => {
+                        (PyBooleanFunction::IsFirstDistinct,).into_py(py)
+                    },
+                    BooleanFunction::IsLastDistinct => {
+                        (PyBooleanFunction::IsLastDistinct,).into_py(py)
+                    },
+                    BooleanFunction::IsUnique => (PyBooleanFunction::IsUnique,).into_py(py),
+                    BooleanFunction::IsDuplicated => (PyBooleanFunction::IsDuplicated,).into_py(py),
+                    BooleanFunction::IsBetween { closed } => {
+                        (PyBooleanFunction::IsBetween, Wrap(*closed)).into_py(py)
+                    },
+                    BooleanFunction::IsIn => (PyBooleanFunction::IsIn,).into_py(py),
+                    BooleanFunction::AllHorizontal => {
+                        (PyBooleanFunction::AllHorizontal,).into_py(py)
+                    },
+                    BooleanFunction::AnyHorizontal => {
+                        (PyBooleanFunction::AnyHorizontal,).into_py(py)
+                    },
+                    BooleanFunction::Not => (PyBooleanFunction::Not,).into_py(py),
                 },
                 FunctionExpr::Abs => ("abs",).to_object(py),
                 FunctionExpr::Hist { .. } => return Err(PyNotImplementedError::new_err("hist")),
@@ -1020,10 +1086,9 @@ pub(crate) fn into_py(py: Python<'_>, expr: &AExpr) -> PyResult<PyObject> {
                 FunctionExpr::TopKBy { sort_options: _ } => {
                     return Err(PyNotImplementedError::new_err("top_k_by"))
                 },
-                FunctionExpr::EwmMeanBy {
-                    half_life: _,
-                    check_sorted: _,
-                } => return Err(PyNotImplementedError::new_err("ewm_mean_by")),
+                FunctionExpr::EwmMeanBy { half_life: _ } => {
+                    return Err(PyNotImplementedError::new_err("ewm_mean_by"))
+                },
             },
             options: py.None(),
         }

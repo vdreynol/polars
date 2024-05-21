@@ -11,7 +11,6 @@ mod build {
 }
 
 mod allocator;
-mod arrow_interop;
 #[cfg(feature = "csv")]
 mod batched_csv;
 mod conversion;
@@ -22,6 +21,7 @@ mod expr;
 mod file;
 mod functions;
 mod gil_once_cell;
+mod interop;
 mod lazyframe;
 mod lazygroupby;
 mod map;
@@ -36,7 +36,6 @@ mod py_modules;
 mod series;
 #[cfg(feature = "sql")]
 mod sql;
-mod to_numpy;
 mod utils;
 
 use pyo3::panic::PanicException;
@@ -107,6 +106,8 @@ fn _expr_nodes(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<Window>().unwrap();
     m.add_class::<PyOperator>().unwrap();
     m.add_class::<PyStringFunction>().unwrap();
+    m.add_class::<PyBooleanFunction>().unwrap();
+    m.add_class::<PyClosedInterval>().unwrap();
     // Options
     m.add_class::<PyWindowMapping>().unwrap();
     m.add_class::<PyRollingGroupOptions>().unwrap();
